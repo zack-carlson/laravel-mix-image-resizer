@@ -22,6 +22,9 @@ const defaultOptions = {
         1536,
         1600
     ],
+    fractionalRatios: [
+        1,2,3,4
+    ],
     webp: true,
     imageminPngquantOptions: {
         quality: [0.3, 0.5]
@@ -29,6 +32,7 @@ const defaultOptions = {
     imageminWebpOptions: {
         quality: 50
     },
+    useFractions: true,
 }
 
 class ImageResizer {
@@ -41,6 +45,8 @@ class ImageResizer {
             webp,
             imageminPngquantOptions,
             imageminWebpOptions,
+            fractionalRatios,
+            useFractions,
         } = Object.assign(defaultOptions, extraOptions)
 
         if (disable) return
@@ -60,31 +66,63 @@ class ImageResizer {
 
             let {root, dir, base, ext, name} = path.parse(imagePath)
             let width = imageSize(imagePath).width
-            sizes.forEach((w) => {
-                if (width < w) {
-                    return
+            if (useFractions) {
+                split_name = filename.match(/(.*)@([1-5])x/);
+                if (split_name == null) { 
+                    return 
                 }
-                sharp(imagePath)
-                    .resize(w)
-                    .toFile(dir + '/' + name + '-resized-' + w + ext)
-            })
+                thisSize = split_name[2];
+                rootName = split_name[1];
 
-            imagemin([imagePath, dir + '/' + name + '-resized-*'], {
-                destination: dir,
-                plugins: [
-                    imageminJpegtran(),
-                    imageminPngquant(imageminPngquantOptions),
-                ],
-            })
+                fractionalRatios.forEach((scale) => {
+                    if (thisSize < scale) { 
+                        // don't upscale
+                        return
+                    } 
+                    
+                    ratio = thisSize / scale;
+                    newWidth = Math.floor(ratio * width);
 
-            if (webp) {
+                    sharp(imagePath)
+                        .resize(newWidth)
+                        .toFile(dir + '/' + name + '@' + scale + 'x' + ext);
+                    imagemin([imagePath, dir + '/' + name + '@*'], {
+                        destination: dir,
+                        plugins: [
+                            imageminJpegtran(),
+                            imageminPngquant(imageminPngquantOptions),
+                        ],
+                    });
+                })
+
+            } else { 
+                sizes.forEach((w) => {
+                    if (width < w) {
+                        return
+                    }
+                    sharp(imagePath)
+                        .resize(w)
+                        .toFile(dir + '/' + name + '-resized-' + w + ext)
+                })
                 imagemin([imagePath, dir + '/' + name + '-resized-*'], {
                     destination: dir,
                     plugins: [
-                        imageminWebp(imageminWebpOptions)
+                        imageminJpegtran(),
+                        imageminPngquant(imageminPngquantOptions),
                     ],
-                })
+                });
+                if (webp) {
+                    imagemin([imagePath, dir + '/' + name + '-resized-*'], {
+                        destination: dir,
+                        plugins: [
+                            imageminWebp(imageminWebpOptions)
+                        ],
+                    })
+                }
             }
+            
+
+            
         })
     }
 }
