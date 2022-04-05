@@ -8,6 +8,8 @@ const imagemin = require('imagemin')
 const imageminJpegtran = require('imagemin-jpegtran')
 const imageminPngquant = require('imagemin-pngquant')
 const imageminWebp = require('imagemin-webp')
+
+// test/
 console.log(mix);
 const defaultOptions = {
     disable: false,
